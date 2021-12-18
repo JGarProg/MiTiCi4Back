@@ -1,50 +1,41 @@
+import { InscriptionModel } from '../inscripcion/inscripcion.js';
+import { UserModel } from '../usuario/usuario.js';
 import { ProjectModel } from './proyecto.js';
 
 const resolversProyecto = {
+  Proyecto: {
+    lider: async (parent, args, context) => {
+      const usr = await UserModel.findOne({
+        _id: parent.lider.toString(),
+      });
+      return usr;
+    },
+    inscripciones: async (parent, args, context) => {
+      const inscripciones = await InscriptionModel.find({
+        proyecto: parent._id,
+      });
+      return inscripciones;
+    },
+  },
   Query: {
     Proyectos: async (parent, args, context) => {
-      const proyectos = await ProjectModel.find()
-      .populate({
-        path: 'avances',
-        populate: {
-          path: 'creadoPor',
-        },
-      })
-      .populate('inscripciones')
-      .populate('lider');
+      if (context.userData) {
+        if (context.userData.rol === 'LIDER') {
+          const proyectos = await ProjectModel.find({ lider: context.userData._id });
+          return proyectos;
+        } else if (context.userData.rol === 'LIDER') {
+          // const proyectos = await ProjectModel.find({ lider: context.userData._id });
+          // return proyectos;
+        }
+      }
+      const proyectos = await ProjectModel.find();
       return proyectos;
-    },
-    Proyecto: async (parent, args) => {
-      const proyecto = await ProjectModel.findOne({ _id: args._id })
-        .populate({
-          path: 'avances',
-          populate: {
-            path: 'creadoPor',
-          },
-        })
-        .populate('inscripciones')
-        .populate('lider');
-      return proyecto;
-    },
-    Lideras: async (parent, args) => {
-      const lideras = await ProjectModel.find({ lider: args.lider })
-        .populate({
-          path: 'avances',
-          populate: {
-            path: 'creadoPor',
-          },
-        })
-        .populate('inscripciones')
-        .populate('lider');
-      return lideras;
     },
   },
   Mutation: {
     crearProyecto: async (parent, args, context) => {
       const proyectoCreado = await ProjectModel.create({
         nombre: args.nombre,
-        estado: args.estado,
-        fase: args.fase,
         fechaInicio: args.fechaInicio,
         fechaFin: args.fechaFin,
         presupuesto: args.presupuesto,
@@ -59,13 +50,8 @@ const resolversProyecto = {
         { ...args.campos },
         { new: true }
       );
+
       return proyectoEditado;
-    },
-    eliminarProyecto: async (parent, args) => {
-      if (Object.keys(args).includes('_id')) {
-        const proyectoEliminado = await ProjectModel.findOneAndDelete({ _id: args._id });
-        return proyectoEliminado;
-      }
     },
     crearObjetivo: async (parent, args) => {
       const proyectoConObjetivo = await ProjectModel.findByIdAndUpdate(
